@@ -4,3 +4,5 @@
 提供接口
 1. AddWorker, return channel
 2. RemoveWorker， return bool
+
+目前chan的长度固定，后续可以改为可配置
