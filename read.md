@@ -6,3 +6,8 @@
 2. RemoveWorker， return bool
 
 目前chan的长度固定，后续可以改为可配置
+
+go_registry实现中，使用了supervisor或者worker通知tracker去除entry项的操作
+但是，此处实现不准备处理该步骤，直接由用户调用的时候，通过entry的close选项确定
+
+
