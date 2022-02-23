@@ -4,38 +4,19 @@ import "log"
 
 // 协程使用的回调对象接口
 
+// 如果设置更新时间间隔为0，那么该IWorker退化为简单的状态机
 type IWorker interface {
 	// 用于构建新的IWorker对象，特别需要处理引用类型变量，否则导致严重错误
-	Init(entry_name string, mq chan WorkerReceiveMessage) IWorker
-	Get(status interface{}, mq chan WorkerReceiveMessage) (interface{}, error)
-	Refresh(status interface{}, mq chan WorkerReceiveMessage) (IWorker, error)
+	Init(entry *Entry) IWorker
+	Get(status interface{}) (interface{}, error)
+	Put(status interface{}) (IWorker, error)
+	Refresh(status interface{}) (IWorker, error)
 }
-
-// 另一种类型的IWorker可以为, 即完全由客户端处理即可
-// type IWorker interface {
-// 	Init(entry_name string, mq chan WorkerReceiveMessage) IWorker
-// 	Get(status interface{}, mq chan WorkerReceiveMessage) (interface{}, error)
-// 	Put(status interface{}, mq chan WorkerReceiveMessage) (IWorker, error)
-// }
-
-// type Supervisor struct {
-// 	Name         string // supervisor的名称
-// 	tracker_mq   chan WorkerResponseMessage
-// 	worker     IWorker
-// 	listen_mq    chan SupervisorReceiveMessage // supervisor监听该mq
-// 	restart_rule Strategy
-// }
-// type Entry struct {
-// 	e_mu    sync.Mutex
-// 	e_close bool
-// 	Name    string
-// 	Mq      chan WorkerReceiveMessage
-// }
 
 // 执行自动更新的worker模型
 func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) {
 	log.Println("Start worker with entry Name: ", entry.Name)
-	status_machine := worker.Init(entry.Name, entry.Mq)
+	status_machine := worker.Init(entry)
 	is_open := true
 	var err_reason error
 	for {
@@ -54,9 +35,8 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 			} else if data.MessageType == WORKER_MESSAGE_STOP {
 				is_open = false
 				err_reason = ClosedWorkerError{}
-			} else if data.MessageType == WORKER_MESSAGE_NORMAL {
-				// normal动作通常不改变status
-				result, err := handle_normal(status_machine, entry.Mq, data.Data)
+			} else if data.MessageType == WORKER_MESSAGE_GET {
+				result, err := handle_get(status_machine, data.Data)
 				if err != nil {
 					is_open = false
 					err_reason = EntryPanicError{}
@@ -64,13 +44,22 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 				} else {
 					data.Mq <- result
 				}
-			} else if data.MessageType == WORKER_MESSAGE_REFRESH {
-				// refresh 用于更新status
-				new_status, err := handle_refresh(status_machine, entry.Mq, data)
+			} else if data.MessageType == WORKER_MESSAGE_PUT {
+				new_status, err := handle_put(status_machine, data)
 				if err != nil {
 					is_open = false
 					err_reason = EntryPanicError{}
 					data.Mq <- err_reason
+				} else {
+					status_machine = new_status
+					data.Mq <- true
+				}
+			} else if data.MessageType == WORKER_MESSAGE_REFRESH {
+				// refresh 用于更新status
+				new_status, err := handle_refresh(status_machine, entry, data, monitor.refresh_interval)
+				if err != nil {
+					is_open = false
+					err_reason = EntryPanicError{}
 				} else {
 					status_machine = new_status
 				}
@@ -82,21 +71,33 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 }
 
 func close_worker(monitor *Supervisor, entry *Entry) {
+
 }
 
-func handle_normal(worker IWorker, entry_mq chan WorkerReceiveMessage, data interface{}) (result interface{}, err error) {
+func handle_get(worker IWorker, data interface{}) (result interface{}, err error) {
 	err = nil
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("Worker Handle normal panic: ", r)
+			log.Println("Worker Handle get panic: ", r)
 			err = EntryPanicError{}
 		}
 	}()
-	result, err = worker.Get(data, entry_mq)
+	result, err = worker.Get(data)
+	return
+}
+func handle_put(worker IWorker, data interface{}) (status IWorker, err error) {
+	err = nil
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Worker Handle put panic: ", r)
+			err = EntryPanicError{}
+		}
+	}()
+	status, err = worker.Put(data)
 	return
 }
 
-func handle_refresh(worker IWorker, entry_mq chan WorkerReceiveMessage, data interface{}) (status IWorker, err error) {
+func handle_refresh(worker IWorker, entry *Entry, data interface{}, interval int) (status IWorker, err error) {
 	err = nil
 	defer func() {
 		if r := recover(); r != nil {
@@ -104,6 +105,9 @@ func handle_refresh(worker IWorker, entry_mq chan WorkerReceiveMessage, data int
 			err = EntryPanicError{}
 		}
 	}()
-	status, err = worker.Refresh(data, entry_mq)
+	status, err = worker.Refresh(data)
+	if interval > 0 {
+		go send_refersh_signal(entry, interval)
+	}
 	return
 }

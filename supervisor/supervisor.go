@@ -6,19 +6,19 @@ import (
 )
 
 type Option struct {
-	Name        string
-	Tracker_mq  chan WorkerResponseMessage
-	Worker      IWorker
-	RestartRule Strategy
+	Name            string
+	Worker          IWorker
+	RestartRule     Strategy
+	RefreshInterval int
 }
 
 // 协程树根节点
 type Supervisor struct {
-	Name         string // supervisor的名称
-	tracker_mq   chan WorkerResponseMessage
-	worker       IWorker
-	listen_mq    chan SupervisorReceiveMessage // supervisor监听该mq
-	restart_rule Strategy
+	Name             string                        // supervisor的名称
+	worker           IWorker                       // worker的具体执行对象
+	listen_mq        chan SupervisorReceiveMessage // supervisor监听的mq
+	restart_rule     Strategy                      //worker的重启策略
+	refresh_interval int                           // worker的更新时间间隔
 }
 
 /*
@@ -26,17 +26,18 @@ supervisor只管理以下事务:
 1. 开启goroutine
 2. 关闭goroutine
 3. 监听goroutine的失效情况
-4. 在goroutine故障次数超过限制时，通知tracker，即主状态机
+4. 在goroutine故障次数超过限制时，关闭entry，调用方将发现entry关闭了，
+	从而重新请求tracker，而tracker再调用supervisor对象
 */
 
 func create_supervisor(option Option) chan SupervisorReceiveMessage {
 	listen_mq := make(chan SupervisorReceiveMessage, 1000)
 	monitor := &Supervisor{
-		Name:         option.Name,
-		tracker_mq:   option.Tracker_mq,
-		worker:       option.Worker,
-		listen_mq:    listen_mq,
-		restart_rule: option.RestartRule,
+		Name:             option.Name,
+		worker:           option.Worker,
+		listen_mq:        listen_mq,
+		restart_rule:     option.RestartRule,
+		refresh_interval: option.RefreshInterval,
 	}
 	go start_supervisor(monitor)
 	return listen_mq
@@ -52,6 +53,7 @@ func start_supervisor(monitor *Supervisor) {
 			log.Println("Monitor receive message")
 			if !ok {
 				log.Panic("Monitor receive invalid message")
+				return
 			}
 			// create, remove 由tracker调用, 而panic由定制worker调用
 			if message.MessageType == CREATE_ROUTINE {

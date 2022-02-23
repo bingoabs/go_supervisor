@@ -27,3 +27,12 @@ go中不存之前缀++--，只能使用后缀，并且不是表达式，即 a = 
 
 Implementing interface in golang gives method has pointer receiver [duplicate]
 指针类型实现的接口，那么就是指针类型可以作为该接口类型使用，但是指针所指向的类型不行！
+
+
+// // empty slice 是指slice不为nil，但是slice没有值，slice的底层的空间是空
+// slice := make([]int, 0) // slice := []int{}
+// var slice []int wei nil
+// golang中允许对值为 nil 的 slice 添加元素
+
+// myMap = make(map[string] personInfo, 5)
+panic: assignment to entry in nil map

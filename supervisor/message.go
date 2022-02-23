@@ -13,7 +13,8 @@ type workerMessageType string
 // 实际上无法实现真正的异步，因为即便是异步操作也需要确定该goroutine是否仍然工作，因此全部同步
 // 如果有异步的操作，需要用户在自定义worker中实现相关逻辑
 const WORKER_MESSAGE_STOP workerMessageType = "STOP"
-const WORKER_MESSAGE_NORMAL workerMessageType = "NORMAL"
+const WORKER_MESSAGE_GET workerMessageType = "GET"
+const WORKER_MESSAGE_PUT workerMessageType = "PUT"
 const WORKER_MESSAGE_REFRESH workerMessageType = "REFRESH"
 
 // const WORKER_MESSAGE_SYNC workerMessageType = "SYNC"
