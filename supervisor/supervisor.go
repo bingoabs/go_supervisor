@@ -48,77 +48,75 @@ func start_supervisor(monitor *Supervisor) {
 	log.Println("Monitor start_supervisor start")
 	entry_statics := make(map[string]*EntryStatic)
 	for {
-		select {
-		case message, ok := <-monitor.listen_mq:
-			log.Println("Monitor receive message")
-			if !ok {
-				log.Panic("Monitor receive invalid message")
-				return
-			}
-			// create, remove 由tracker调用, 而panic由定制worker调用
-			if message.MessageType == CREATE_ROUTINE {
-				log.Println("Monitor receive CREATE ROUTINE action")
+		message, ok := <-monitor.listen_mq
+		log.Println("Monitor receive message")
+		if !ok {
+			log.Panic("Monitor receive invalid message")
+			return
+		}
+		// create, remove 由tracker调用, 而panic由定制worker调用
+		if message.MessageType == CREATE_ROUTINE {
+			log.Println("Monitor receive CREATE ROUTINE action")
 
-				_, ok := entry_statics[message.EntryName]
-				if !ok {
+			_, ok := entry_statics[message.EntryName]
+			if !ok {
+				worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)
+				entry := &Entry{
+					Name:       message.EntryName,
+					Mq:         worker_mq,
+					Created_At: time.Now().Unix(),
+					e_closed:   false,
+				}
+				entry_statics[message.EntryName] = &EntryStatic{
+					Entry: entry,
+				}
+				go start_autoupdate_worker(monitor, entry, monitor.worker)
+			}
+			message.Mq <- entry_statics[message.EntryName].Entry
+		} else if message.MessageType == REMOVE_ROUTINE {
+			log.Println("Monitor receive REMOVE ROUTINE action")
+			// TODO
+			_, ok := entry_statics[message.EntryName]
+			if ok {
+				entry := entry_statics[message.EntryName].Entry
+				delete(entry_statics, message.EntryName)
+				go close_worker(monitor, entry)
+			}
+		} else if message.MessageType == DOWN_ROUTINE {
+			log.Println("Monitor receive DOWN ROUTINE action")
+
+			_, ok := entry_statics[message.EntryName]
+			if ok {
+				// 每一次崩溃都被记录，如果崩溃次数超过限制，那么执行终结该worker, 否则重启
+				entry_static := entry_statics[message.EntryName]
+				entry_static.Panic_timestamps = append(entry_static.Panic_timestamps, time.Now().Unix())
+
+				entry := entry_statics[message.EntryName].Entry
+				go panic_worker(monitor, entry)
+				// 如果down次数在合理区间，执行重建；否则删除记录
+				// 特别注意，不再主动通知tracker，而是由调用Entry时进行检查，减少复杂性
+				if valid_panic_times(monitor.restart_rule, entry_static.Panic_timestamps) {
+					log.Println("Monitor receive valid DOWN event")
 					worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)
 					entry := &Entry{
-						Name:       message.EntryName,
-						Mq:         worker_mq,
-						Created_At: time.Now().Unix(),
-						e_closed:   false,
+						Name:     message.EntryName,
+						Mq:       worker_mq,
+						e_closed: false,
 					}
 					entry_statics[message.EntryName] = &EntryStatic{
-						Entry: entry,
+						Entry:            entry,
+						Panic_timestamps: entry_static.Panic_timestamps,
 					}
+
+					// TODO 使用配置选择不同的worker模型
 					go start_autoupdate_worker(monitor, entry, monitor.worker)
-				}
-				message.Mq <- entry_statics[message.EntryName].Entry
-			} else if message.MessageType == REMOVE_ROUTINE {
-				log.Println("Monitor receive REMOVE ROUTINE action")
-				// TODO
-				_, ok := entry_statics[message.EntryName]
-				if ok {
-					entry := entry_statics[message.EntryName].Entry
+				} else {
+					log.Println("Monitor receive invalid DOWN event")
 					delete(entry_statics, message.EntryName)
-					go close_worker(monitor, entry)
 				}
-			} else if message.MessageType == DOWN_ROUTINE {
-				log.Println("Monitor receive DOWN ROUTINE action")
-
-				_, ok := entry_statics[message.EntryName]
-				if ok {
-					// 每一次崩溃都被记录，如果崩溃次数超过限制，那么执行终结该worker, 否则重启
-					entry_static := entry_statics[message.EntryName]
-					entry_static.Panic_timestamps = append(entry_static.Panic_timestamps, time.Now().Unix())
-
-					entry := entry_statics[message.EntryName].Entry
-					go panic_worker(monitor, entry)
-					// 如果down次数在合理区间，执行重建；否则删除记录
-					// 特别注意，不再主动通知tracker，而是由调用Entry时进行检查，减少复杂性
-					if valid_panic_times(monitor.restart_rule, entry_static.Panic_timestamps) {
-						log.Println("Monitor receive valid DOWN event")
-						worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)
-						entry := &Entry{
-							Name:     message.EntryName,
-							Mq:       worker_mq,
-							e_closed: false,
-						}
-						entry_statics[message.EntryName] = &EntryStatic{
-							Entry:            entry,
-							Panic_timestamps: entry_static.Panic_timestamps,
-						}
-
-						// TODO 使用配置选择不同的worker模型
-						go start_autoupdate_worker(monitor, entry, monitor.worker)
-					} else {
-						log.Println("Monitor receive invalid DOWN event")
-						delete(entry_statics, message.EntryName)
-					}
-				}
-			} else {
-				log.Panic("Monitor receive unknow message: ", message)
 			}
+		} else {
+			log.Panic("Monitor receive unknow message: ", message)
 		}
 	}
 }
