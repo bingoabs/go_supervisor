@@ -14,11 +14,8 @@ type workerMessageType string
 // 如果有异步的操作，需要用户在自定义worker中实现相关逻辑
 const WORKER_MESSAGE_STOP workerMessageType = "STOP"
 const WORKER_MESSAGE_GET workerMessageType = "GET"
-const WORKER_MESSAGE_PUT workerMessageType = "PUT"
 const WORKER_MESSAGE_REFRESH workerMessageType = "REFRESH"
-
-// const WORKER_MESSAGE_SYNC workerMessageType = "SYNC"
-// const WORKER_MESSAGE_ASYNC workerMessageType = "ASYNC"
+const WORKER_MESSAGE_PANIC workerMessageType = "PANIC"
 
 // 工作goroutine接收消息的格式, 目前直接使用 interface{}
 type WorkerReceiveMessage struct {

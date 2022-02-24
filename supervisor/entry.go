@@ -37,6 +37,7 @@ func Get(entry *Entry, message interface{}) WorkerResponseMessage {
 // 	return send_message(entry, msg)
 // }
 
+// TODO 可以使用sync/atomic进行优化
 func Close(entry *Entry) {
 	log.Println("Entry Close start ", entry)
 	if entry.e_closed {
@@ -44,8 +45,8 @@ func Close(entry *Entry) {
 	}
 	entry.e_lock.Lock()
 	if !entry.e_closed {
-		close(entry.Mq)
 		entry.e_closed = true
+		close(entry.Mq)
 	}
 	entry.e_lock.Unlock()
 	log.Println("Entry Close end: ", entry)

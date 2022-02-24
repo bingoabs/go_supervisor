@@ -93,10 +93,9 @@ func start_supervisor(monitor *Supervisor) {
 					entry_static.Panic_timestamps = append(entry_static.Panic_timestamps, time.Now().Unix())
 
 					entry := entry_statics[message.EntryName].Entry
-					go close_worker(monitor, entry)
+					go panic_worker(monitor, entry)
 					// 如果down次数在合理区间，执行重建；否则删除记录
 					// 特别注意，不再主动通知tracker，而是由调用Entry时进行检查，减少复杂性
-					// TODO 直接捕捉panic, 似乎不需要通过supervisor的channel消息兜一圈
 					if valid_panic_times(monitor.restart_rule, entry_static.Panic_timestamps) {
 						log.Println("Monitor receive valid DOWN event")
 						worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)

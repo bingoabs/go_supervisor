@@ -44,11 +44,15 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 			} else if data.MessageType == WORKER_MESSAGE_STOP {
 				is_open = false
 				err_reason = ClosedWorkerError{}
+			} else if data.MessageType == WORKER_MESSAGE_PANIC {
+				is_open = false
+				err_reason = EntryPanicError{}
 			} else if data.MessageType == WORKER_MESSAGE_GET {
+				// TODO 直接捕捉panic, 似乎不需要通过supervisor的channel消息兜一圈
 				result, err := handle_get(status_machine, data.Data)
 				if err != nil {
 					is_open = false
-					err_reason = EntryPanicError{}
+					err_reason = err
 					data.Mq <- WorkerResponseMessage{
 						Err:  err_reason,
 						Data: nil,
@@ -59,29 +63,12 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 						Data: result,
 					}
 				}
-				// 注释PUT相关内容，因为不是目前重点
-				// } else if data.MessageType == WORKER_MESSAGE_PUT {
-				// 	new_status, err := handle_put(status_machine, data)
-				// 	if err != nil {
-				// 		is_open = false
-				// 		err_reason = EntryPanicError{}
-				// 		data.Mq <- WorkerResponseMessage{
-				// 			Err:  err_reason,
-				// 			Data: nil,
-				// 		}
-				// 	} else {
-				// 		status_machine = new_status
-				// 		data.Mq <- WorkerResponseMessage{
-				// 			Err:  nil,
-				// 			Data: true,
-				// 		}
-				// 	}
 			} else if data.MessageType == WORKER_MESSAGE_REFRESH {
 				// refresh 用于更新status
 				new_status, err := handle_refresh(status_machine, entry, data, monitor.refresh_interval)
 				if err != nil {
 					is_open = false
-					err_reason = EntryPanicError{}
+					err_reason = err
 					data.Mq <- WorkerResponseMessage{
 						Err:  err_reason,
 						Data: nil,
@@ -104,6 +91,9 @@ func close_worker(monitor *Supervisor, entry *Entry) {
 
 }
 
+func panic_worker(monitor *Supervisor, entry *Entry) {
+
+}
 func handle_get(worker IWorker, data interface{}) (result interface{}, err error) {
 	err = nil
 	defer func() {
