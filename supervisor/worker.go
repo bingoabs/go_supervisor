@@ -44,9 +44,17 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 			} else if data.MessageType == WORKER_MESSAGE_STOP {
 				is_open = false
 				err_reason = ClosedWorkerError{}
+				data.Mq <- WorkerResponseMessage{
+					Err:  nil,
+					Data: true,
+				}
 			} else if data.MessageType == WORKER_MESSAGE_PANIC {
 				is_open = false
 				err_reason = EntryPanicError{}
+				data.Mq <- WorkerResponseMessage{
+					Err:  nil,
+					Data: true,
+				}
 			} else if data.MessageType == WORKER_MESSAGE_GET {
 				// TODO 直接捕捉panic, 似乎不需要通过supervisor的channel消息兜一圈
 				result, err := handle_get(status_machine, data.Data)
@@ -88,11 +96,25 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 }
 
 func close_worker(monitor *Supervisor, entry *Entry) {
-
+	log.Println("Worker close_worker start")
+	message := WorkerReceiveMessage{
+		MessageType: WORKER_MESSAGE_STOP,
+		Data:        nil,
+		Mq:          make(chan WorkerResponseMessage, 1),
+	}
+	result := send_message(entry, message)
+	log.Println("Worker close_worker receive: ", result)
 }
 
 func panic_worker(monitor *Supervisor, entry *Entry) {
-
+	log.Println("Worker panic_worker start")
+	message := WorkerReceiveMessage{
+		MessageType: WORKER_MESSAGE_PANIC,
+		Data:        nil,
+		Mq:          make(chan WorkerResponseMessage, 1),
+	}
+	result := send_message(entry, message)
+	log.Println("Worker panic_worker receive: ", result)
 }
 func handle_get(worker IWorker, data interface{}) (result interface{}, err error) {
 	err = nil
@@ -103,17 +125,6 @@ func handle_get(worker IWorker, data interface{}) (result interface{}, err error
 		}
 	}()
 	result, err = worker.Get(data)
-	return
-}
-func handle_put(worker IWorker, data interface{}) (status IWorker, err error) {
-	err = nil
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("Worker Handle put panic: ", r)
-			err = EntryPanicError{}
-		}
-	}()
-	status, err = worker.Put(data)
 	return
 }
 
@@ -135,14 +146,12 @@ func handle_refresh(worker IWorker, entry *Entry, data interface{}, interval int
 func refresh_worker(entry *Entry, interval int) {
 	log.Println("Entry refresh_worker start with interval: ", interval)
 	ticker := time.NewTimer(time.Second * time.Duration(interval))
-	select {
-	case <-ticker.C:
-		message := WorkerReceiveMessage{
-			MessageType: WORKER_MESSAGE_REFRESH,
-			Data:        nil,
-			Mq:          make(chan WorkerResponseMessage, 1),
-		}
-		result := send_message(entry, message)
-		log.Println("Entry refresh_worker receive: ", result)
+	<-ticker.C
+	message := WorkerReceiveMessage{
+		MessageType: WORKER_MESSAGE_REFRESH,
+		Data:        nil,
+		Mq:          make(chan WorkerResponseMessage, 1),
 	}
+	result := send_message(entry, message)
+	log.Println("Entry refresh_worker receive: ", result)
 }

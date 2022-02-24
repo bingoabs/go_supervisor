@@ -76,7 +76,7 @@ func start_supervisor(monitor *Supervisor) {
 				message.Mq <- entry_statics[message.EntryName].Entry
 			} else if message.MessageType == REMOVE_ROUTINE {
 				log.Println("Monitor receive REMOVE ROUTINE action")
-
+				// TODO
 				_, ok := entry_statics[message.EntryName]
 				if ok {
 					entry := entry_statics[message.EntryName].Entry
