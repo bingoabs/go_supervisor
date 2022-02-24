@@ -6,8 +6,7 @@ type WorkerResponseMessage struct {
 	Data interface{}
 }
 
-// worker通道相关信息
-// 类型为私有，但是设定常量为公开
+// worker通道相关信息, 类型为私有，但是设定常量为公开
 type workerMessageType string
 
 // 实际上无法实现真正的异步，因为即便是异步操作也需要确定该goroutine是否仍然工作，因此全部同步
@@ -15,7 +14,6 @@ type workerMessageType string
 const WORKER_MESSAGE_STOP workerMessageType = "STOP"
 const WORKER_MESSAGE_GET workerMessageType = "GET"
 const WORKER_MESSAGE_REFRESH workerMessageType = "REFRESH"
-const WORKER_MESSAGE_PANIC workerMessageType = "PANIC"
 
 // 工作goroutine接收消息的格式, 目前直接使用 interface{}
 type WorkerReceiveMessage struct {
@@ -29,14 +27,12 @@ const WORKER_MQ_LENGTH int = 1000
 const SUPERVISOR_MQ_LENGTH int = 1000
 
 // Supervisor通道相关信息
-// 为了限制外部使用不知名的action，设置如下
 type supervisorMessageType string
 
 const (
-	CREATE_ROUTINE supervisorMessageType = "CREATE_ROUTINE"
-	// GET_ROUTINE
-	REMOVE_ROUTINE supervisorMessageType = "REMOVE_ROUTINE"
-	DOWN_ROUTINE   supervisorMessageType = "DOWN_ROUTINE"
+	CREATE_EVENT supervisorMessageType = "CREATE_EVENT"
+	REMOVE_EVENT supervisorMessageType = "REMOVE_EVENT"
+	DOWN_EVENT   supervisorMessageType = "DOWN_EVENT"
 )
 
 type SupervisorReceiveMessage struct {

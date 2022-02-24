@@ -43,22 +43,28 @@ func create_supervisor(option Option) chan SupervisorReceiveMessage {
 	return listen_mq
 }
 
+func send_message_to_supervisor(mq chan SupervisorReceiveMessage, message SupervisorReceiveMessage) *Entry {
+	mq <- message
+	result := <-message.Mq
+	return result
+}
+
 func start_supervisor(monitor *Supervisor) {
 	// 构建一个dict，用于记录奔溃的goroutine的具体统计数据，比如时间和次数
-	log.Println("Monitor start_supervisor start")
-	entry_statics := make(map[string]*EntryStatic)
+	log.Println("Supervisor start_supervisor start")
+	entrys := make(map[string]*Entry)
 	for {
 		message, ok := <-monitor.listen_mq
-		log.Println("Monitor receive message")
+		log.Println("Supervisor start_supervisor receive message")
 		if !ok {
-			log.Panic("Monitor receive invalid message")
+			log.Panic("Supervisor start_supervisor receive invalid message")
 			return
 		}
 		// create, remove 由tracker调用, 而panic由定制worker调用
-		if message.MessageType == CREATE_ROUTINE {
-			log.Println("Monitor receive CREATE ROUTINE action")
-
-			_, ok := entry_statics[message.EntryName]
+		if message.MessageType == CREATE_EVENT {
+			log.Println("Supervisor start_supervisor receive CREATE_EVENT")
+			_, ok := entrys[message.EntryName]
+			// 存在则返回, 否则新建
 			if !ok {
 				worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)
 				entry := &Entry{
@@ -67,70 +73,33 @@ func start_supervisor(monitor *Supervisor) {
 					Created_At: time.Now().Unix(),
 					e_closed:   false,
 				}
-				entry_statics[message.EntryName] = &EntryStatic{
-					Entry: entry,
-				}
+				entrys[message.EntryName] = entry
 				go start_autoupdate_worker(monitor, entry, monitor.worker)
 			}
-			message.Mq <- entry_statics[message.EntryName].Entry
-		} else if message.MessageType == REMOVE_ROUTINE {
-			log.Println("Monitor receive REMOVE ROUTINE action")
-			// TODO
-			_, ok := entry_statics[message.EntryName]
+			message.Mq <- entrys[message.EntryName]
+		} else if message.MessageType == REMOVE_EVENT {
+			log.Println("Supervisor start_supervisor receive REMOVE ROUTINE action")
+			_, ok := entrys[message.EntryName]
 			if ok {
-				entry := entry_statics[message.EntryName].Entry
-				delete(entry_statics, message.EntryName)
-				go close_worker(monitor, entry)
+				go close_worker(monitor, entrys[message.EntryName])
+				delete(entrys, message.EntryName)
+				message.Mq <- nil
+			} else {
+				log.Panic("Supervisor start_supervisor receive unknown REMOVE_EVENT: ", message)
 			}
-		} else if message.MessageType == DOWN_ROUTINE {
-			log.Println("Monitor receive DOWN ROUTINE action")
-
-			_, ok := entry_statics[message.EntryName]
+		} else if message.MessageType == DOWN_EVENT {
+			// TODO 可以考虑记录更详细的信息，用于重建该entry
+			log.Println("Supervisor start_supervisor receive DOWN event from: ", message)
+			_, ok := entrys[message.EntryName]
 			if ok {
-				// 每一次崩溃都被记录，如果崩溃次数超过限制，那么执行终结该worker, 否则重启
-				entry_static := entry_statics[message.EntryName]
-				entry_static.Panic_timestamps = append(entry_static.Panic_timestamps, time.Now().Unix())
-
-				entry := entry_statics[message.EntryName].Entry
-				go panic_worker(monitor, entry)
-				// 如果down次数在合理区间，执行重建；否则删除记录
-				// 特别注意，不再主动通知tracker，而是由调用Entry时进行检查，减少复杂性
-				if valid_panic_times(monitor.restart_rule, entry_static.Panic_timestamps) {
-					log.Println("Monitor receive valid DOWN event")
-					worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)
-					entry := &Entry{
-						Name:     message.EntryName,
-						Mq:       worker_mq,
-						e_closed: false,
-					}
-					entry_statics[message.EntryName] = &EntryStatic{
-						Entry:            entry,
-						Panic_timestamps: entry_static.Panic_timestamps,
-					}
-
-					// TODO 使用配置选择不同的worker模型
-					go start_autoupdate_worker(monitor, entry, monitor.worker)
-				} else {
-					log.Println("Monitor receive invalid DOWN event")
-					delete(entry_statics, message.EntryName)
-				}
+				go close_worker(monitor, entrys[message.EntryName])
+				delete(entrys, message.EntryName)
+				message.Mq <- nil
+			} else {
+				log.Panic("Supervisor start_supervisor receive unknow Down event: ", message)
 			}
 		} else {
-			log.Panic("Monitor receive unknow message: ", message)
+			log.Panic("Supervisor start_supervisor receive unknow EVENT: ", message)
 		}
 	}
-}
-
-func valid_panic_times(rule Strategy, timestamps []int64) bool {
-	panics := len(timestamps)
-	if rule.Number == 0 {
-		return false
-	}
-	if panics <= rule.Number {
-		return true
-	}
-	if timestamps[panics-1]-timestamps[panics-rule.Number] < int64(rule.TimeInterval) {
-		return true
-	}
-	return false
 }

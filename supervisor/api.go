@@ -1,9 +1,24 @@
 package supervisor
 
 // supervisor调用接口
-func Create(option Option) chan SupervisorReceiveMessage {
+func CreateSupervisor(option Option) chan SupervisorReceiveMessage {
 	return create_supervisor(option)
 }
-func Insert(supervisor_mq chan SupervisorReceiveMessage) {
 
+func GetWorker(mq chan SupervisorReceiveMessage, entry_name string) *Entry {
+	message := SupervisorReceiveMessage{
+		EntryName:   entry_name,
+		MessageType: CREATE_EVENT,
+		Mq:          make(chan *Entry, 1),
+	}
+	return send_message_to_supervisor(mq, message)
+}
+
+func RemoveWorker(mq chan SupervisorReceiveMessage, entry_name string) *Entry {
+	message := SupervisorReceiveMessage{
+		EntryName:   entry_name,
+		MessageType: REMOVE_EVENT,
+		Mq:          make(chan *Entry, 1),
+	}
+	return send_message_to_supervisor(mq, message)
 }

@@ -49,7 +49,7 @@ supervisor只是管理goroutine，以及在panic超过容忍限制后崩溃，�
 也就是说，用于实现缓存很好用，但是如果做数据持久化可能不是什么好主意
 						// 该work用于自动从远端更新内容,还可以执行其他实现,比如由用户对status进行更新
 
-                        
+
 enum的golang实现
 // type Action uint32
 
@@ -59,3 +59,7 @@ enum的golang实现
 // 	REMOVE_ROUTINE
 // 	DOWN_ROUTINE
 // )
+
+
+worker负责记录当前goroutine的失败次数，并检查是否超过限制，如果超过，那么改变goroutine状态，并开始返回错误信息，而不是直接关闭channel，并通知supervisor
+而supervisor通过监听down信息，清除entry信息，并执行entry的关闭
