@@ -8,7 +8,7 @@ func CreateSupervisor(option Option) chan SupervisorReceiveMessage {
 func GetWorker(mq chan SupervisorReceiveMessage, entry_name string) *Entry {
 	message := SupervisorReceiveMessage{
 		EntryName:   entry_name,
-		MessageType: CREATE_EVENT,
+		MessageType: SUPERVISOR_CREATE_EVENT,
 		Mq:          make(chan *Entry, 1),
 	}
 	return send_message_to_supervisor(mq, message)
@@ -17,7 +17,7 @@ func GetWorker(mq chan SupervisorReceiveMessage, entry_name string) *Entry {
 func RemoveWorker(mq chan SupervisorReceiveMessage, entry_name string) *Entry {
 	message := SupervisorReceiveMessage{
 		EntryName:   entry_name,
-		MessageType: REMOVE_EVENT,
+		MessageType: SUPERVISOR_REMOVE_EVENT,
 		Mq:          make(chan *Entry, 1),
 	}
 	return send_message_to_supervisor(mq, message)

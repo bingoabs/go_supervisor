@@ -61,7 +61,7 @@ func start_supervisor(monitor *Supervisor) {
 			return
 		}
 		// create, remove 由tracker调用, 而panic由定制worker调用
-		if message.MessageType == CREATE_EVENT {
+		if message.MessageType == SUPERVISOR_CREATE_EVENT {
 			log.Println("Supervisor start_supervisor receive CREATE_EVENT")
 			_, ok := entrys[message.EntryName]
 			// 存在则返回, 否则新建
@@ -77,7 +77,7 @@ func start_supervisor(monitor *Supervisor) {
 				go start_autoupdate_worker(monitor, entry, monitor.worker)
 			}
 			message.Mq <- entrys[message.EntryName]
-		} else if message.MessageType == REMOVE_EVENT {
+		} else if message.MessageType == SUPERVISOR_REMOVE_EVENT {
 			log.Println("Supervisor start_supervisor receive REMOVE ROUTINE action")
 			_, ok := entrys[message.EntryName]
 			if ok {
@@ -87,7 +87,7 @@ func start_supervisor(monitor *Supervisor) {
 			} else {
 				log.Panic("Supervisor start_supervisor receive unknown REMOVE_EVENT: ", message)
 			}
-		} else if message.MessageType == DOWN_EVENT {
+		} else if message.MessageType == SUPERVISOR_DOWN_EVENT {
 			// TODO 可以考虑记录更详细的信息，用于重建该entry
 			log.Println("Supervisor start_supervisor receive DOWN event from: ", message)
 			_, ok := entrys[message.EntryName]

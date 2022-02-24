@@ -187,7 +187,7 @@ func refresh_worker(entry *Entry, interval int) {
 func send_down_to_supervisor(monitor *Supervisor, entry *Entry) {
 	message := SupervisorReceiveMessage{
 		EntryName:   entry.Name,
-		MessageType: DOWN_EVENT,
+		MessageType: SUPERVISOR_DOWN_EVENT,
 		Mq:          make(chan *Entry, 1),
 	}
 	result := send_message_to_supervisor(monitor.listen_mq, message)

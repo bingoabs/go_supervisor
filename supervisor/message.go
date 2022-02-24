@@ -30,9 +30,9 @@ const SUPERVISOR_MQ_LENGTH int = 1000
 type supervisorMessageType string
 
 const (
-	CREATE_EVENT supervisorMessageType = "CREATE_EVENT"
-	REMOVE_EVENT supervisorMessageType = "REMOVE_EVENT"
-	DOWN_EVENT   supervisorMessageType = "DOWN_EVENT"
+	SUPERVISOR_CREATE_EVENT supervisorMessageType = "CREATE_EVENT"
+	SUPERVISOR_REMOVE_EVENT supervisorMessageType = "REMOVE_EVENT"
+	SUPERVISOR_DOWN_EVENT   supervisorMessageType = "DOWN_EVENT"
 )
 
 type SupervisorReceiveMessage struct {
