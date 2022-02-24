@@ -36,3 +36,26 @@ Implementing interface in golang gives method has pointer receiver [duplicate]
 
 // myMap = make(map[string] personInfo, 5)
 panic: assignment to entry in nil map
+
+golang都是值传递，不过有些值是引用类型
+从便于理解的角度，可以认为引用类型的值传递等价于引用，即底层的数据结构是相同的
+
+注意，supervisor、
+go_registry 拆分为 go_registry, go_supervisor, go_mesh, 其中三者可以成为goroutine注册中心，而go_supervisor单独作为协程管理组件，go_mesh单独作为节点间通信组件
+supervisor只是管理goroutine，以及在panic超过容忍限制后崩溃，并不关心其他
+
+而 最终的 go_registy实现的是在各个节点分布goroutine，但是每个goroutine必须保证可以直接替换，即goroutine本身逻辑保证内容，而不能依赖节点间的重排列过程会保持goroutine 的状态完美切换
+
+也就是说，用于实现缓存很好用，但是如果做数据持久化可能不是什么好主意
+						// 该work用于自动从远端更新内容,还可以执行其他实现,比如由用户对status进行更新
+
+                        
+enum的golang实现
+// type Action uint32
+
+// const (
+// 	CREATE_ROUTINE Action = iota
+// 	// GET_ROUTINE
+// 	REMOVE_ROUTINE
+// 	DOWN_ROUTINE
+// )

@@ -31,7 +31,7 @@ supervisor只管理以下事务:
 */
 
 func create_supervisor(option Option) chan SupervisorReceiveMessage {
-	listen_mq := make(chan SupervisorReceiveMessage, 1000)
+	listen_mq := make(chan SupervisorReceiveMessage, SUPERVISOR_MQ_LENGTH)
 	monitor := &Supervisor{
 		Name:             option.Name,
 		worker:           option.Worker,
@@ -61,11 +61,12 @@ func start_supervisor(monitor *Supervisor) {
 
 				_, ok := entry_statics[message.EntryName]
 				if !ok {
-					worker_mq := make(chan WorkerReceiveMessage, 1000)
+					worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)
 					entry := &Entry{
-						Name:     message.EntryName,
-						Mq:       worker_mq,
-						e_closed: false,
+						Name:       message.EntryName,
+						Mq:         worker_mq,
+						Created_At: time.Now().Unix(),
+						e_closed:   false,
 					}
 					entry_statics[message.EntryName] = &EntryStatic{
 						Entry: entry,
@@ -94,10 +95,11 @@ func start_supervisor(monitor *Supervisor) {
 					entry := entry_statics[message.EntryName].Entry
 					go close_worker(monitor, entry)
 					// 如果down次数在合理区间，执行重建；否则删除记录
-					// 特别注意，不再主动通知tracker，而是由调用Entry时进行检查，渐少复杂性
+					// 特别注意，不再主动通知tracker，而是由调用Entry时进行检查，减少复杂性
+					// TODO 直接捕捉panic, 似乎不需要通过supervisor的channel消息兜一圈
 					if valid_panic_times(monitor.restart_rule, entry_static.Panic_timestamps) {
 						log.Println("Monitor receive valid DOWN event")
-						worker_mq := make(chan WorkerReceiveMessage, 1000)
+						worker_mq := make(chan WorkerReceiveMessage, WORKER_MQ_LENGTH)
 						entry := &Entry{
 							Name:     message.EntryName,
 							Mq:       worker_mq,
@@ -107,7 +109,7 @@ func start_supervisor(monitor *Supervisor) {
 							Entry:            entry,
 							Panic_timestamps: entry_static.Panic_timestamps,
 						}
-						// 该work用于自动从远端更新内容,还可以执行其他实现,比如由用户对status进行更新
+
 						// TODO 使用配置选择不同的worker模型
 						go start_autoupdate_worker(monitor, entry, monitor.worker)
 					} else {

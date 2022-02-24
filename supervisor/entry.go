@@ -3,14 +3,14 @@ package supervisor
 import (
 	"log"
 	"sync"
-	"time"
 )
 
 type Entry struct {
-	Name     string
-	Mq       chan WorkerReceiveMessage
-	e_closed bool
-	e_lock   sync.Mutex
+	Name       string
+	Mq         chan WorkerReceiveMessage
+	Created_At int64
+	e_closed   bool
+	e_lock     sync.Mutex
 }
 
 type EntryStatic struct {
@@ -18,13 +18,24 @@ type EntryStatic struct {
 	Panic_timestamps []int64
 }
 
-func Get(entry *Entry, message interface{}) interface{} {
-	return nil
+func Get(entry *Entry, message interface{}) WorkerResponseMessage {
+	msg := WorkerReceiveMessage{
+		MessageType: WORKER_MESSAGE_GET,
+		Data:        message,
+		Mq:          make(chan WorkerResponseMessage, 1),
+	}
+	return send_message(entry, msg)
 }
 
-func Put(entry *Entry, message interface{}) {
-	return
-}
+// 基于作为缓存的功能，put的作用不明显，尤其不适应节点间重排后的状态不稳定状态
+// func Put(entry *Entry, message interface{}) WorkerResponseMessage {
+// 	msg := WorkerReceiveMessage{
+// 		MessageType: WORKER_MESSAGE_PUT,
+// 		Data:        message,
+// 		Mq:          make(chan WorkerResponseMessage, 1),
+// 	}
+// 	return send_message(entry, msg)
+// }
 
 func Close(entry *Entry) {
 	log.Println("Entry Close start ", entry)
@@ -40,20 +51,18 @@ func Close(entry *Entry) {
 	log.Println("Entry Close end: ", entry)
 }
 
-func send_refersh_signal(entry *Entry, interval int) {
-	log.Println("Entry send_refersh_signal start with interval: ", interval)
-	ticker := time.NewTicker(time.Second * time.Duration(interval))
-	select {
-	case <-ticker.C:
-		message := WorkerReceiveMessage{
-			MessageType: WORKER_MESSAGE_REFRESH,
+func send_message(entry *Entry, message WorkerReceiveMessage) WorkerResponseMessage {
+	if entry.e_closed {
+		return WorkerResponseMessage{
+			Err:  EntryPanicError{},
+			Data: nil,
 		}
-		send_message(entry, message)
 	}
-}
-
-func send_message(entry *Entry, message WorkerReceiveMessage) error {
-	发送信息
-	TODO
-	考虑对所有发出的信息，worker都进行回复
+	entry.e_lock.Lock()
+	if !entry.e_closed {
+		entry.Mq <- message
+	}
+	entry.e_lock.Unlock()
+	result := <-message.Mq
+	return result
 }

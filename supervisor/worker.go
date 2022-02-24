@@ -1,6 +1,9 @@
 package supervisor
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 // 协程使用的回调对象接口
 
@@ -19,6 +22,9 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 	status_machine := worker.Init(entry)
 	is_open := true
 	var err_reason error
+	if monitor.refresh_interval > 0 {
+		go refresh_worker(entry, monitor.refresh_interval)
+	}
 	for {
 		select {
 		// 此处不能使用context直接结束无限循环，因为Mq中可能存在未处理消息，必须全部处理完才行
@@ -31,7 +37,10 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 			if !is_open {
 				// 用户在接收到错误信息后，应该弃用当前持有entry，并从tracker获取新的entry
 				// 继续使用旧的entry, 后果自负
-				data.Mq <- err_reason
+				data.Mq <- WorkerResponseMessage{
+					Err:  err_reason,
+					Data: nil,
+				}
 			} else if data.MessageType == WORKER_MESSAGE_STOP {
 				is_open = false
 				err_reason = ClosedWorkerError{}
@@ -40,28 +49,49 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) 
 				if err != nil {
 					is_open = false
 					err_reason = EntryPanicError{}
-					data.Mq <- err_reason
+					data.Mq <- WorkerResponseMessage{
+						Err:  err_reason,
+						Data: nil,
+					}
 				} else {
-					data.Mq <- result
+					data.Mq <- WorkerResponseMessage{
+						Err:  nil,
+						Data: result,
+					}
 				}
-			} else if data.MessageType == WORKER_MESSAGE_PUT {
-				new_status, err := handle_put(status_machine, data)
-				if err != nil {
-					is_open = false
-					err_reason = EntryPanicError{}
-					data.Mq <- err_reason
-				} else {
-					status_machine = new_status
-					data.Mq <- true
-				}
+				// 注释PUT相关内容，因为不是目前重点
+				// } else if data.MessageType == WORKER_MESSAGE_PUT {
+				// 	new_status, err := handle_put(status_machine, data)
+				// 	if err != nil {
+				// 		is_open = false
+				// 		err_reason = EntryPanicError{}
+				// 		data.Mq <- WorkerResponseMessage{
+				// 			Err:  err_reason,
+				// 			Data: nil,
+				// 		}
+				// 	} else {
+				// 		status_machine = new_status
+				// 		data.Mq <- WorkerResponseMessage{
+				// 			Err:  nil,
+				// 			Data: true,
+				// 		}
+				// 	}
 			} else if data.MessageType == WORKER_MESSAGE_REFRESH {
 				// refresh 用于更新status
 				new_status, err := handle_refresh(status_machine, entry, data, monitor.refresh_interval)
 				if err != nil {
 					is_open = false
 					err_reason = EntryPanicError{}
+					data.Mq <- WorkerResponseMessage{
+						Err:  err_reason,
+						Data: nil,
+					}
 				} else {
 					status_machine = new_status
+					data.Mq <- WorkerResponseMessage{
+						Err:  nil,
+						Data: true,
+					}
 				}
 			} else {
 				log.Panic("Worker receive unkonwn message type: ", data.MessageType)
@@ -107,7 +137,22 @@ func handle_refresh(worker IWorker, entry *Entry, data interface{}, interval int
 	}()
 	status, err = worker.Refresh(data)
 	if interval > 0 {
-		go send_refersh_signal(entry, interval)
+		go refresh_worker(entry, interval)
 	}
 	return
+}
+
+func refresh_worker(entry *Entry, interval int) {
+	log.Println("Entry refresh_worker start with interval: ", interval)
+	ticker := time.NewTimer(time.Second * time.Duration(interval))
+	select {
+	case <-ticker.C:
+		message := WorkerReceiveMessage{
+			MessageType: WORKER_MESSAGE_REFRESH,
+			Data:        nil,
+			Mq:          make(chan WorkerResponseMessage, 1),
+		}
+		result := send_message(entry, message)
+		log.Println("Entry refresh_worker receive: ", result)
+	}
 }

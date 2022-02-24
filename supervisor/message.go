@@ -24,8 +24,12 @@ const WORKER_MESSAGE_REFRESH workerMessageType = "REFRESH"
 type WorkerReceiveMessage struct {
 	MessageType workerMessageType
 	Data        interface{}
-	Mq          chan interface{}
+	Mq          chan WorkerResponseMessage
 }
+
+// worker和supervisor监听的channel的长度设置值
+const WORKER_MQ_LENGTH int = 1000
+const SUPERVISOR_MQ_LENGTH int = 1000
 
 // Supervisor通道相关信息
 // 为了限制外部使用不知名的action，设置如下
@@ -43,12 +47,3 @@ type SupervisorReceiveMessage struct {
 	MessageType supervisorMessageType
 	Mq          chan *Entry
 }
-
-// type Action uint32
-
-// const (
-// 	CREATE_ROUTINE Action = iota
-// 	// GET_ROUTINE
-// 	REMOVE_ROUTINE
-// 	DOWN_ROUTINE
-// )
