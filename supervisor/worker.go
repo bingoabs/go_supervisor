@@ -9,17 +9,18 @@ import (
 
 // 如果设置更新时间间隔为0，那么该IWorker退化为简单的状态机
 type IWorker interface {
-	// 用于构建新的IWorker对象，特别需要处理引用类型变量，否则导致严重错误
-	Init(entry *Entry) IWorker
 	Get(status interface{}) (interface{}, error)
 	Put(status interface{}) (IWorker, error)
 	Refresh(status interface{}) (IWorker, error)
 }
 
+// 用于构建新的IWorker对象，特别需要处理引用类型变量，否则导致严重错误
+type WorkerGenrator func(entry *Entry) IWorker
+
 // 执行自动更新的worker模型
-func start_autoupdate_worker(monitor *Supervisor, entry *Entry, worker IWorker) {
+func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator WorkerGenrator) {
 	log.Println("Worker start_autoupdate_worker start with entry Name: ", entry.Name)
-	status_machine := worker.Init(entry)
+	status_machine := generator(entry)
 	is_open := true
 	var err_reason error
 	panic_timestamps := []int64{}
