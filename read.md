@@ -21,24 +21,8 @@ go_registry实现中，使用了supervisor或者worker通知tracker去除entry�
 // 如果一定要使用, 那么在Init函数中必须处理好
 
 
-go中不存之前缀++--，只能使用后缀，并且不是表达式，即 a = j++是非法的
-
-// TODO, 关闭的channel是否能读尽内容 可以
-
-Implementing interface in golang gives method has pointer receiver [duplicate]
-指针类型实现的接口，那么就是指针类型可以作为该接口类型使用，但是指针所指向的类型不行！
-
-
-// // empty slice 是指slice不为nil，但是slice没有值，slice的底层的空间是空
-// slice := make([]int, 0) // slice := []int{}
-// var slice []int wei nil
-// golang中允许对值为 nil 的 slice 添加元素
-
-// myMap = make(map[string] personInfo, 5)
-panic: assignment to entry in nil map
-
-golang都是值传递，不过有些值是引用类型
-从便于理解的角度，可以认为引用类型的值传递等价于引用，即底层的数据结构是相同的
+worker负责记录当前goroutine的失败次数，并检查是否超过限制，如果超过，那么改变goroutine状态，并开始返回错误信息，而不是直接关闭channel，并通知supervisor
+而supervisor通过监听down信息，清除entry信息，并执行entry的关闭
 
 注意，supervisor、
 go_registry 拆分为 go_registry, go_supervisor, go_mesh, 其中三者可以成为goroutine注册中心，而go_supervisor单独作为协程管理组件，go_mesh单独作为节点间通信组件
@@ -49,17 +33,3 @@ supervisor只是管理goroutine，以及在panic超过容忍限制后崩溃，�
 也就是说，用于实现缓存很好用，但是如果做数据持久化可能不是什么好主意
 						// 该work用于自动从远端更新内容,还可以执行其他实现,比如由用户对status进行更新
 
-
-enum的golang实现
-// type Action uint32
-
-// const (
-// 	CREATE_ROUTINE Action = iota
-// 	// GET_ROUTINE
-// 	REMOVE_ROUTINE
-// 	DOWN_ROUTINE
-// )
-
-
-worker负责记录当前goroutine的失败次数，并检查是否超过限制，如果超过，那么改变goroutine状态，并开始返回错误信息，而不是直接关闭channel，并通知supervisor
-而supervisor通过监听down信息，清除entry信息，并执行entry的关闭

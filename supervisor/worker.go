@@ -5,20 +5,8 @@ import (
 	"time"
 )
 
-// 协程使用的回调对象接口
-
-// 如果设置更新时间间隔为0，那么该IWorker退化为简单的状态机
-type IWorker interface {
-	Get(status interface{}) (interface{}, error)
-	Put(status interface{}) (IWorker, error)
-	Refresh(status interface{}) (IWorker, error)
-}
-
-// 用于构建新的IWorker对象，特别需要处理引用类型变量，否则导致严重错误
-type WorkerGenrator func(entry *Entry) IWorker
-
 // 执行自动更新的worker模型
-func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator WorkerGenrator) {
+func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator WorkerGenerator) {
 	log.Println("Worker start_autoupdate_worker start with entry Name: ", entry.Name)
 	status_machine := generator(entry)
 	is_open := true
@@ -27,15 +15,9 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator Worker
 	if monitor.refresh_interval > 0 {
 		go refresh_worker(entry, monitor.refresh_interval)
 	}
-	for {
-		// 此处不能使用context直接结束无限循环，因为Mq中可能存在未处理消息，必须全部处理完才行
-		// 因此仅一个分支，不需要使用select
-		data, ok := <-entry.Mq
+	for data := range entry.Mq {
 		log.Println("Worker start_autoupdate_worker receive message")
-		if !ok {
-			log.Println("Worker start_autoupdate_worker receive close signal and break")
-			return
-		}
+
 		// 用户在接收到错误信息后，应该弃用当前持有entry，并从tracker获取新的entry; 继续使用旧的entry, 后果自负
 		if !is_open {
 			log.Println("Worker start_autoupdate_worker already closed")
@@ -59,6 +41,7 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator Worker
 				log.Println("Worker start_autoupdate_worker GET event receive err: ", err)
 
 				panic_timestamps = append(panic_timestamps, time.Now().Unix())
+				// 合理范围内出错, 那么当前请求返回错误, 并继续对外服务
 				if valid_panic_times(monitor.restart_rule, panic_timestamps) {
 					data.Mq <- WorkerResponseMessage{
 						Err:  err,
@@ -115,6 +98,8 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator Worker
 			log.Panic("Worker receive unkonwn message type: ", data.MessageType)
 		}
 	}
+	log.Println("Worker start_autoupdate_worker receive close signal and break")
+	return
 }
 
 func valid_panic_times(rule Strategy, timestamps []int64) bool {

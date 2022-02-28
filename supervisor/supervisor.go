@@ -7,7 +7,7 @@ import (
 
 type Option struct {
 	Name            string
-	WorkerGenerator WorkerGenerator
+	Generator       WorkerGenerator
 	RestartRule     Strategy
 	RefreshInterval int
 }
@@ -15,7 +15,7 @@ type Option struct {
 // 协程树根节点
 type Supervisor struct {
 	Name             string                        // supervisor的名称
-	generator        WorkerGenrator                // worker的具体执行对象
+	generator        WorkerGenerator               // worker的具体执行对象
 	listen_mq        chan SupervisorReceiveMessage // supervisor监听的mq
 	restart_rule     Strategy                      //worker的重启策略
 	refresh_interval int                           // worker的更新时间间隔
@@ -34,7 +34,7 @@ func create_supervisor(option Option) chan SupervisorReceiveMessage {
 	listen_mq := make(chan SupervisorReceiveMessage, SUPERVISOR_MQ_LENGTH)
 	monitor := &Supervisor{
 		Name:             option.Name,
-		generator:        option.WorkerGenerator,
+		generator:        option.Generator,
 		listen_mq:        listen_mq,
 		restart_rule:     option.RestartRule,
 		refresh_interval: option.RefreshInterval,
