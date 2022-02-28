@@ -13,7 +13,7 @@ type Entry struct {
 	e_lock     sync.Mutex
 }
 
-func Get(entry *Entry, message interface{}) WorkerResponseMessage {
+func GetFromEntry(entry *Entry, message interface{}) WorkerResponseMessage {
 	msg := WorkerReceiveMessage{
 		MessageType: WORKER_MESSAGE_GET,
 		Data:        message,
@@ -23,7 +23,7 @@ func Get(entry *Entry, message interface{}) WorkerResponseMessage {
 }
 
 // TODO 可以使用sync/atomic进行优化
-func Close(entry *Entry) {
+func CloseEntry(entry *Entry) {
 	log.Println("Entry Close start ", entry)
 	if entry.e_closed {
 		return

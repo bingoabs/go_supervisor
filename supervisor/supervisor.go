@@ -5,22 +5,6 @@ import (
 	"time"
 )
 
-type Option struct {
-	Name            string
-	Generator       WorkerGenerator
-	RestartRule     Strategy
-	RefreshInterval int
-}
-
-// 协程树根节点
-type Supervisor struct {
-	Name             string                        // supervisor的名称
-	generator        WorkerGenerator               // worker的具体执行对象
-	listen_mq        chan SupervisorReceiveMessage // supervisor监听的mq
-	restart_rule     Strategy                      //worker的重启策略
-	refresh_interval int                           // worker的更新时间间隔
-}
-
 /*
 supervisor只管理以下事务:
 1. 开启goroutine

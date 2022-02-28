@@ -33,3 +33,6 @@ supervisor只是管理goroutine，以及在panic超过容忍限制后崩溃，�
 也就是说，用于实现缓存很好用，但是如果做数据持久化可能不是什么好主意
 						// 该work用于自动从远端更新内容,还可以执行其他实现,比如由用户对status进行更新
 
+
+将supervisor的listen mq也监听起来
+

@@ -99,7 +99,6 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator Worker
 		}
 	}
 	log.Println("Worker start_autoupdate_worker receive close signal and break")
-	return
 }
 
 func valid_panic_times(rule Strategy, timestamps []int64) bool {
