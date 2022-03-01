@@ -9,7 +9,7 @@ import (
 
 const ENTRY_NAME string = "entry_1"
 
-func TestCreate(t *testing.T) {
+func aTestCreate(t *testing.T) {
 	log.Println("TestGetPush start")
 	option := getSupervisorOption()
 	supervisor := Supervisor.CreateSupervisor(option)
@@ -17,7 +17,7 @@ func TestCreate(t *testing.T) {
 	_ = Supervisor.GetWorker(supervisor, "entry_2")
 }
 
-func TestWorkerGet(t *testing.T) {
+func aTestWorkerGet(t *testing.T) {
 	option := getSupervisorOption()
 	supervisor := Supervisor.CreateSupervisor(option)
 	entry := Supervisor.GetWorker(supervisor, ENTRY_NAME)
@@ -34,7 +34,7 @@ func TestWorkerGet(t *testing.T) {
 	}
 }
 
-func TestWorkerClose(t *testing.T) {
+func aTestWorkerClose(t *testing.T) {
 	option := getSupervisorOption()
 	supervisor := Supervisor.CreateSupervisor(option)
 	entry := Supervisor.GetWorker(supervisor, ENTRY_NAME)
@@ -49,7 +49,7 @@ func TestWorkerClose(t *testing.T) {
 	}
 }
 
-func TestWorkerRefres(t *testing.T) {
+func TestWorkerRefresh(t *testing.T) {
 	// TODO
 	option := getSupervisorOption()
 	supervisor := Supervisor.CreateSupervisor(option)
