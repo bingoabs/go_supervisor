@@ -73,11 +73,13 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator Worker
 
 				panic_timestamps = append(panic_timestamps, time.Now().Unix())
 				if valid_panic_times(monitor.restart_rule, panic_timestamps) {
+					log.Println("Worker start_autoupdate_worker REFRESH in limited times, go on")
 					data.Mq <- WorkerResponseMessage{
 						Err:  err,
 						Data: nil,
 					}
 				} else {
+					log.Println("Worker start_autoupdate_worker REFRESH above limited times, hold error")
 					is_open = false
 					err_reason = err
 					data.Mq <- WorkerResponseMessage{
@@ -102,14 +104,16 @@ func start_autoupdate_worker(monitor *Supervisor, entry *Entry, generator Worker
 }
 
 func valid_panic_times(rule Strategy, timestamps []int64) bool {
+	log.Println("Stategy: ", rule)
+	log.Println("valid_panic_times receive timestamps: ", timestamps)
 	panics := len(timestamps)
 	if rule.Number == 0 {
 		return false
 	}
-	if panics <= rule.Number {
+	if panics < rule.Number {
 		return true
 	}
-	if timestamps[panics-1]-timestamps[panics-rule.Number] < int64(rule.TimeInterval) {
+	if timestamps[panics-1]-timestamps[panics-rule.Number] > rule.TimeInterval {
 		return true
 	}
 	return false
@@ -141,6 +145,9 @@ func handle_get(worker IWorker, data interface{}) (result interface{}, err error
 
 func handle_refresh(worker IWorker, entry *Entry, data interface{}, interval int) (status IWorker, err error) {
 	log.Println("Worker handle_refresh start")
+	if interval > 0 {
+		go refresh_worker(entry, interval)
+	}
 	err = nil
 	defer func() {
 		if r := recover(); r != nil {
@@ -149,9 +156,6 @@ func handle_refresh(worker IWorker, entry *Entry, data interface{}, interval int
 		}
 	}()
 	status, err = worker.Refresh(data)
-	if interval > 0 {
-		go refresh_worker(entry, interval)
-	}
 	log.Println("Worker handle_refresh end")
 	return
 }

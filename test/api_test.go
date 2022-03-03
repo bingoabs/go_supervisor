@@ -3,13 +3,14 @@ package test
 import (
 	"log"
 	"testing"
+	"time"
 
 	Supervisor "github.com/bingoabs/go_supervisor/supervisor"
 )
 
 const ENTRY_NAME string = "entry_1"
 
-func aTestCreate(t *testing.T) {
+func TestCreate(t *testing.T) {
 	log.Println("TestGetPush start")
 	option := getSupervisorOption()
 	supervisor := Supervisor.CreateSupervisor(option)
@@ -17,7 +18,7 @@ func aTestCreate(t *testing.T) {
 	_ = Supervisor.GetWorker(supervisor, "entry_2")
 }
 
-func aTestWorkerGet(t *testing.T) {
+func TestWorkerGet(t *testing.T) {
 	option := getSupervisorOption()
 	supervisor := Supervisor.CreateSupervisor(option)
 	entry := Supervisor.GetWorker(supervisor, ENTRY_NAME)
@@ -34,7 +35,7 @@ func aTestWorkerGet(t *testing.T) {
 	}
 }
 
-func aTestWorkerClose(t *testing.T) {
+func TestWorkerClose(t *testing.T) {
 	option := getSupervisorOption()
 	supervisor := Supervisor.CreateSupervisor(option)
 	entry := Supervisor.GetWorker(supervisor, ENTRY_NAME)
@@ -50,10 +51,11 @@ func aTestWorkerClose(t *testing.T) {
 }
 
 func TestWorkerRefresh(t *testing.T) {
-	// TODO
 	option := getSupervisorOption()
+	option.RefreshInterval = 3
 	supervisor := Supervisor.CreateSupervisor(option)
 	entry := Supervisor.GetWorker(supervisor, ENTRY_NAME)
+	time.Sleep(6 * time.Second)
 	response := Supervisor.GetFromEntry(entry, ENTRY_NAME)
 	if response.Err != nil {
 		t.Errorf("Worker Get receive error: %v", response.Err)
@@ -65,4 +67,21 @@ func TestWorkerRefresh(t *testing.T) {
 	if data != ENTRY_NAME {
 		t.Errorf("Worker Get data not match: %v", data)
 	}
+}
+
+func TestWorkerRefreshCrash(t *testing.T) {
+	option := getPanicWorkerSupervisorOption()
+	supervisor := Supervisor.CreateSupervisor(option)
+	entry := Supervisor.GetWorker(supervisor, ENTRY_NAME)
+	time.Sleep(10 * time.Second)
+	response := Supervisor.GetFromEntry(entry, ENTRY_NAME)
+	log.Println("response, ", response)
+	if response.Err == nil {
+		t.Errorf("Worker Panic goroutine can't Get error")
+	}
+	err, ok := response.Err.(Supervisor.EntryPanicError)
+	if !ok {
+		t.Errorf("Worker Panic goroutine can't Get Panic Error")
+	}
+	log.Printf("Worker Panic goroutine Get Panic error: %v\n", err)
 }
