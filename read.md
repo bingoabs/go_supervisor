@@ -1,3 +1,4 @@
+
 通过该库构建goroutine tree，该库不但构建entry对象**核心为一个channel和goroutine对**，并传递给外部调用方
 同时监控它们健康状态，按照给定的规则决定是否重启以及报告
 
@@ -31,8 +32,7 @@ supervisor只是管理goroutine，以及在panic超过容忍限制后崩溃，�
 而 最终的 go_registy实现的是在各个节点分布goroutine，但是每个goroutine必须保证可以直接替换，即goroutine本身逻辑保证内容，而不能依赖节点间的重排列过程会保持goroutine 的状态完美切换
 
 也就是说，用于实现缓存很好用，但是如果做数据持久化可能不是什么好主意
-						// 该work用于自动从远端更新内容,还可以执行其他实现,比如由用户对status进行更新
-
+// 该work用于自动从远端更新内容,还可以执行其他实现,比如由用户对status进行更新
 
 将supervisor的listen mq也监听起来
 
